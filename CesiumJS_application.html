@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <script type="module">
+
+    // Your access token can be found at: https://ion.cesium.com/tokens.
+
+    Cesium.Ion.defaultAccessToken = 'your_token';
+
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+    });
+
+    const osmBuildings = await Cesium.createOsmBuildingsAsync();
+    viewer.scene.primitives.add(osmBuildings);
+
+    // Space between commas is supposed to contain your data
+
+    const flightData = JSON.parse(
+      ''
+    );
+
+    // The starting time point in brackets should contain the relevant timestamp, which can be obtained from the first row of the original FlightRadar24 CSV file
+
+    const timeStepInSeconds = 30;
+    const totalSeconds = timeStepInSeconds * (flightData.length - 1);
+    const start = Cesium.JulianDate.fromIso8601("2024-05-25T04:36:57Z");
+    const stop = Cesium.JulianDate.addSeconds(start, totalSeconds, new Cesium.JulianDate());
+    viewer.clock.startTime = start.clone();
+    viewer.clock.stopTime = stop.clone();
+    viewer.clock.currentTime = start.clone();
+    viewer.timeline.zoomTo(start, stop);
+    viewer.clock.multiplier = 50;
+    viewer.clock.shouldAnimate = true;
+
+    const positionProperty = new Cesium.SampledPositionProperty();
+
+    for (let i = 0; i < flightData.length; i++) {
+      const dataPoint = flightData[i];
+
+      const time = Cesium.JulianDate.addSeconds(start, i * timeStepInSeconds, new Cesium.JulianDate());
+      const position = Cesium.Cartesian3.fromDegrees(dataPoint.longitude, dataPoint.latitude, dataPoint.height);
+
+      positionProperty.addSample(time, position);
+
+      viewer.entities.add({
+        description: `Location: (${dataPoint.longitude}, ${dataPoint.latitude}, ${dataPoint.height})`,
+        position: position,
+        point: { pixelSize: 10, color: Cesium.Color.YELLOW }
+      });
+    }
+
+    async function loadModel() {
+      // Load the glTF model "Cesium_Air" from the repository to your Assets in Cesium ion and copy AssetId to place it in brackets
+      const airplaneUri = await Cesium.IonResource.fromAssetId(your_AssetId);
+      const airplaneEntity = viewer.entities.add({
+        availability: new Cesium.TimeIntervalCollection([ new Cesium.TimeInterval({ start: start, stop: stop }) ]),
+        position: positionProperty,
+        model: { uri: airplaneUri },
+        orientation: new Cesium.VelocityOrientationProperty(positionProperty),    
+        path: new Cesium.PathGraphics({ width: 3 })
+      });
+      
+      viewer.trackedEntity = airplaneEntity;
+    }
+
+    loadModel();
+  </script>
+</body>
+</html>
